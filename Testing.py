@@ -11,28 +11,32 @@ from pprint import pprint
 def preprocess(img):
     img = cv2.GaussianBlur(img,(3,3),0)
     img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY_INV,55,10)
+    img = getCroppedImage(img)
+    return img
 
+def getCroppedImage(img):
     #getting cropped image
-    _, contours, hierachy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+    coords = np.column_stack(np.where(img > 0))
+    rect = cv2.minAreaRect(coords)
 
-    points = np.concatenate(contours)
+    rect = (rect[0][::-1],rect[1],-rect[2]-90)
 
-    rotatedRect = cv2.minAreaRect(points)
-
-    angle = rotatedRect[2]
+    angle = rect[2]
     if angle < -45.0:
         angle += 90.0
 
-    rotMatrix = cv2.getRotationMatrix2D(rotatedRect[0], angle, 1)
-    img = cv2.warpAffine(img, rotMatrix, img.shape[0:2][::-1], flags=cv2.INTER_CUBIC)
+    rotMatrix = cv2.getRotationMatrix2D(rect[0], angle, 1)
+    img = cv2.warpAffine(img, rotMatrix, img.shape[0:2][::-1], flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
-    if rotatedRect[2] < -45.0:
-        w, h = rotatedRect[1][::-1]
+    if rect[2] < -45.0:
+        w, h = rect[1][::-1]
     else:
-        w, h = rotatedRect[1]
+        w, h = rect[1]
 
-    img = cv2.getRectSubPix(img, (int(w), int(h)), rotatedRect[0])
+    img = cv2.getRectSubPix(img, (int(w), int(h)), rect[0])
     return img
+
+#***********************************************************************************************************************
 
 # construct the argument parse and parse the arguments
 # ap = argparse.ArgumentParser()
@@ -46,7 +50,7 @@ def preprocess(img):
 filepath = input("Enter filepath: ") #example1.jpg
 image = cv2.imread(filepath)
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-# gray = cv2.bitwise_not(gray) TODO: get selective cases for when to apply and not apply this
+#gray = cv2.bitwise_not(gray) #TODO: get selective cases for when to apply and not apply this
 
 preprocessedImg = preprocess(gray)
 
